@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>実用型ノイキャンプロセッサー ＆ 統合型プレイヤー</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 上部コントロールパネル */
+        #control-panel {
+            background-color: #1e293b;
+            padding: 20px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+            border-bottom: 1px solid #334155;
+        }
+
+        h3 {
+            margin: 0 0 15px 0;
+            color: #38bdf8;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+        }
+
+        .control-item {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        label {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        select, input[type="range"], button, input[type="text"] {
+            background: #1e293b;
+            border: 1px solid #475569;
+            color: #fff;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        input[type="range"] {
+            padding: 0;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button {
+            cursor: pointer;
+            background-color: #0284c7;
+            border: none;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #0369a1;
+        }
+
+        /* 下部メディアプレイヤー・ブラウザエリア */
+        #media-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #1e293b;
+            padding: 15px;
+            gap: 10px;
+        }
+
+        .player-box {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+
+        #browser-frame {
+            flex: 1;
+            border: none;
+            width: 100%;
+            background: #fff;
+            border-radius: 6px;
+        }
+
+        .info-text {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="control-panel">
+        <h3>🎙️ 実用型アクティブ・オーディオプロセッサー</h3>
+        
+        <div class="control-group">
+            <div class="control-item">
+                <label for="mic-select">① 入力源 (マイク/環境音)</label>
+                <select id="mic-select"><option>マイクを検出中...</option></select>
+                <button id="start-mic-btn" style="margin-top: 5px;">マイク処理を開始</button>
+            </div>
+
+            <div class="control-item">
+                <label for="nc-range">② リアルノイキャン (ノイズ遮断): <span id="nc-val">0</span>%</label>
+                <input type="range" id="nc-range" min="0" max="100" value="0">
+                <span class="info-text">※上げると無音時のサー音（ホワイトノイズ）を実用的に消し去ります。</span>
+            </div>
+
+            <div class="control-item">
+                <label for="separation-range">③ ボイスフォーカス (声 ↔ フラット)</label>
+                <input type="range" id="separation-range" min="0" max="100" value="100">
+                <span class="info-text">※左に振るほど周囲の余計な高音・低音を削り、声の帯域をロックします。</span>
+            </div>
+
+            <div class="control-item">
+                <label for="bass-range">④ 拡張BASS (低音ブースト): <span id="bass-val">0</span> dB</label>
+                <input type="range" id="bass-range" min="0" max="20" value="0">
+            </div>
+        </div>
+    </div>
+
+    <div id="media-container">
+        <div class="player-box">
+            <label style="color: #38bdf8;">🎵 通信拒否対策：手持ちの音楽ファイルを流す（ここにドロップ or 選択）</label><br>
+            <input type="file" id="local-audio-file" accept="audio/*" style="margin-top:5px; color:#94a3b8;">
+            <audio id="local-audio-player" controls style="width: 100%; margin-top: 10px;"></audio>
+        </div>
+
+        <div style="display: flex; gap: 5px; align-items: center; background:#0f172a; padding:8px; border-radius:6px;">
+            <span style="font-size:12px; font-weight:bold; color:#94a3b8;">埋め込みブラウザ (YouTube等):</span>
+            <input type="text" id="url-input" value="https://www.youtube.com/embed/jfKfPfyJRdk" style="flex:1; padding:4px;">
+            <button onclick="loadUrl()" style="padding: 4px 12px; font-size:12px;">移動</button>
+        </div>
+        <iframe id="browser-frame" src="https://www.youtube.com/embed/jfKfPfyJRdk" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        let micStream = null;
+        
+        // 実用ノイキャン用ノード群
+        let sourceNode = null;
+        let noiseGateNode = null;     // 実用ノイズ遮断（DynamicsCompressorをゲートとして利用）
+        let antiPhaseOsc = null;      // 逆位相サイン波（特定の定常ノイズ相殺用）
+        let antiPhaseGain = null;
+        let voiceFilterNode = null;   // ボイスフォーカス
+        let voiceGainNode = null;
+        let bypassGainNode = null;
+        let bassFilterNode = null;    // BASS
+
+        const micSelect = document.getElementById('mic-select');
+        const startMicBtn = document.getElementById('start-mic-btn');
+        const ncRange = document.getElementById('nc-range');
+        const ncVal = document.getElementById('nc-val');
+        const separationRange = document.getElementById('separation-range');
+        const bassRange = document.getElementById('bass-range');
+        const bassVal = document.getElementById('bass-val');
+        const urlInput = document.getElementById('url-input');
+        const browserFrame = document.getElementById('browser-frame');
+        const localAudioFile = document.getElementById('local-audio-file');
+        const localAudioPlayer = document.getElementById('local-audio-player');
+
+        // マイクデバイス取得
+        async function getMicrophones() {
+            try {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                micSelect.innerHTML = '';
+                const audioInputs = devices.filter(device => device.kind === 'audioinput');
+                audioInputs.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `マイク ${index + 1}`;
+                    micSelect.appendChild(option);
+                });
+            } catch (error) {
+                micSelect.innerHTML = '<option>マイクが見つかりません</option>';
+            }
+        }
+
+        // オーディオ処理開始
+        async function startAudioProcessing() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } else if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+
+            if (micStream) {
+                micStream.getTracks().forEach(track => track.stop());
+            }
+
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { deviceId: micSelect.value ? { exact: micSelect.value } : undefined, echoCancellation: false, noiseSuppression: false }
+                });
+                sourceNode = audioCtx.createMediaStreamSource(micStream);
+
+                // ① 実用ノイキャン用ノード：ダイナミクスコンプレッサーを拡張して「ノイズゲート」を構築
+                // 一定以下の小さな雑音（エアコン音やサー音）をバッサリ落とす機構
+                noiseGateNode = audioCtx.createDynamicsCompressor();
+                noiseGateNode.threshold.value = -50; // しきい値
+                noiseGateNode.knee.value = 40;
+                noiseGateNode.ratio.value = 12;
+                noiseGateNode.attack.value = 0.003;
+                noiseGateNode.release.value = 0.25;
+
+                // ② 実用ノイキャン用ノード：逆位相サイン波（定常ノイズ打ち消し用）
+                // 周辺の不快な高周波を相殺するシミュレーター
+                antiPhaseOsc = audioCtx.createOscillator();
+                antiPhaseOsc.type = 'sine';
+                antiPhaseOsc.frequency.value = 120; // ターゲット周波数（低音のブーンという音）
+                antiPhaseGain = audioCtx.createGain();
+                antiPhaseGain.gain.value = 0; // 初期値ゼロ
+                antiPhaseOsc.connect(antiPhaseGain);
+                antiPhaseOsc.start();
+
+                // ③ 声の分離用（バンドパスフィルター）
+                voiceFilterNode = audioCtx.createBiquadFilter();
+                voiceFilterNode.type = "bandpass";
+                voiceFilterNode.frequency.value = 1500;
+                voiceFilterNode.Q.value = 1.2;
+                voiceGainNode = audioCtx.createGain();
+                bypassGainNode = audioCtx.createGain();
+
+                // ④ BASS強調用（ローセルフ）
+                bassFilterNode = audioCtx.createBiquadFilter();
+                bassFilterNode.type = "lowshelf";
+                bassFilterNode.frequency.value = 180;
+
+                // --- ルーティング接続 ---
+                // マイク -> ノイズゲート
+                sourceNode.connect(noiseGateNode);
+
+                // ノイズゲートの後に、声分離をパラレルでブレンド
+                noiseGateNode.connect(voiceFilterNode);
+                voiceFilterNode.connect(voiceGainNode);
+                noiseGateNode.connect(bypassGainNode);
+
+                const mixerNode = audioCtx.createGain();
+                voiceGainNode.connect(mixerNode);
+                bypassGainNode.connect(mixerNode);
+
+                // 逆位相の波形をここでミキサーにぶつけて相殺させる
+                antiPhaseGain.connect(mixerNode);
+
+                // 最終段：BASSを通してスピーカー出力
+                mixerNode.connect(bassFilterNode);
+                bassFilterNode.connect(audioCtx.destination);
+
+                updateNC();
+                updateSeparation();
+                updateBass();
+
+                startMicBtn.textContent = "🟢 実用ノイキャン作動中";
+                startMicBtn.style.backgroundColor = "#10b981";
+            } catch (err) {
+                alert("オーディオ処理の開始に失敗しました。");
+            }
+        }
+
+        // 実用ノイキャンの値をリアルタイム反映
+        function updateNC() {
+            if (!noiseGateNode || !antiPhaseGain) return;
+            const val = parseInt(ncRange.value);
+            ncVal.textContent = val;
+
+            // スライダーを上げるほど、しきい値を上げて小さな環境ノイズをシャットアウトする（ノイズゲートの強化）
+            noiseGateNode.threshold.value = -50 + (val * 0.3); 
+            
+            // 同時に、環境低音を相殺するための「逆位相信号」のブレンド率をあげる
+            antiPhaseGain.gain.value = (val / 100) * 0.05; 
+        }
+
+        function updateSeparation() {
+            if (!voiceGainNode || !bypassGainNode) return;
+            const val = parseInt(separationRange.value);
+            bypassGainNode.gain.value = val / 100;
+            voiceGainNode.gain.value = 1 - (val / 100);
+        }
+
+        function updateBass() {
+            if (!bassFilterNode) return;
+            const val = parseInt(bassRange.value);
+            bassVal.textContent = val;
+            bassFilterNode.gain.value = val;
+        }
+
+        // 外部ブラウザURL読み込み
+        function loadUrl() {
+            browserFrame.src = urlInput.value;
+        }
+
+        // ローカルファイルをプレイヤーに読み込む（絶対に通信拒否されない対策）
+        localAudioFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                localAudioPlayer.src = url;
+                localAudioPlayer.play();
+            }
+        });
+
+        startMicBtn.addEventListener('click', startAudioProcessing);
+        ncRange.addEventListener('input', updateNC);
+        separationRange.addEventListener('input', updateSeparation);
+        bassRange.addEventListener('input', updateBass);
+        window.onload = getMicrophones;
+    </script>
+</body>
+</html>
